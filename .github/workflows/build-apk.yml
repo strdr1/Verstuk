@@ -50,14 +50,12 @@ jobs:
 
       - name: Configure app name and icon
         run: |
-          # Конвертируем иконку в PNG 512x512
-          convert "Screenshot_11 (1).jpg" -resize 512x512 android-app/www/icon.png
-          # Меняем имя и добавляем иконку в config.xml
+          cp "Screenshot_11 (1).jpg" android-app/www/icon.jpg
           python3 - <<'EOF'
           with open('android-app/config.xml', 'r', encoding='utf-8') as f:
               c = f.read()
           c = c.replace('<name>Verstuk</name>', '<name>Мой.Учет.Мебель</name>')
-          c = c.replace('</widget>', '    <icon src="www/icon.png" />\n</widget>')
+          c = c.replace('</widget>', '    <icon src="www/icon.jpg" />\n</widget>')
           with open('android-app/config.xml', 'w', encoding='utf-8') as f:
               f.write(c)
           EOF
