@@ -1,8 +1,8 @@
-name: Build APK from HTML (Cordova)
+name: Build APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -10,94 +10,54 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '11'
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Setup Gradle 7.5
+      - name: Install Android SDK
         run: |
-          set -e
-          mkdir -p "$GITHUB_WORKSPACE/gradle"
-          curl -fSL "https://services.gradle.org/distributions/gradle-7.5-bin.zip" -o gradle.zip
-          unzip -q gradle.zip -d "$GITHUB_WORKSPACE/gradle"
-          echo "$GITHUB_WORKSPACE/gradle/gradle-7.5/bin" >> $GITHUB_PATH
-
-      - name: Install Android SDK command-line tools
-        run: |
-          set -e
           mkdir -p "$ANDROID_SDK_ROOT"
-          cd "$ANDROID_SDK_ROOT"
           curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d cmdline-tools-temp
-          mkdir -p cmdline-tools/latest
-          mv cmdline-tools-temp/cmdline-tools/* cmdline-tools/latest/
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
-          cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "platforms;android-30" "build-tools;33.0.2" "build-tools;30.0.3"
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools-temp"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools-temp/cmdline-tools/"* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-30" \
+            "build-tools;30.0.3"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
 
-      - name: Add SDK to PATH
-        run: |
-          echo "${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "${{ env.ANDROID_SDK_ROOT }}/platform-tools" >> $GITHUB_PATH
-
-      - name: Install Cordova CLI
+      - name: Install Cordova
         run: npm install -g cordova@11
 
-      - name: Create Cordova app and add Android
+      - name: Create Cordova project
         run: |
-          set -e
-          rm -rf android-app
-          cordova create android-app com.example.app MyApp
+          cordova create android-app com.verstuk.app Verstuk
           cd android-app
-          cordova platform add android || true
+          cordova platform add android@10
 
-      - name: Force Gradle wrapper to 7.5 (if present)
+      - name: Copy web files
         run: |
-          set -e
-          FILE=android-app/platforms/android/gradle/wrapper/gradle-wrapper.properties
-          if [ -f "$FILE" ]; then
-            sed -i 's|^distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip|' "$FILE"
-            echo "Updated $FILE to use gradle-7.5-all.zip"
-          else
-            echo "$FILE not found, skipping"
-          fi
+          cp index.html android-app/www/index.html
+          [ -f sw.js ] && cp sw.js android-app/www/sw.js || true
 
-      - name: Copy site files into Cordova `www`
+      - name: Build APK
         run: |
-          set -e
-          rm -rf android-app/www/*
-          # copy repository files to www, excluding git and workflow files
-          rsync -a --exclude='.git' --exclude='.github' --exclude='android-app' ./ android-app/www/ || true
-
-      - name: Ensure Gradle wrapper uses 7.5
-        run: |
-          set -e
-          if [ -d "android-app/platforms/android" ]; then
-            cd android-app/platforms/android
-            gradle wrapper --gradle-version 7.5
-            echo "Gradle wrapper updated to 7.5"
-          else
-            echo "android-app/platforms/android not found, skipping wrapper update"
-          fi
-
-      - name: Build debug APK
-        run: |
-          set -e
           cd android-app
           cordova build android --debug
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: verstuk-debug
           path: android-app/platforms/android/app/build/outputs/apk/debug/*.apk
