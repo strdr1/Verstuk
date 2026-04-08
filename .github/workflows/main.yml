@@ -25,6 +25,14 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup Gradle 7.5
+        run: |
+          set -e
+          mkdir -p "$GITHUB_WORKSPACE/gradle"
+          curl -fSL "https://services.gradle.org/distributions/gradle-7.5-bin.zip" -o gradle.zip
+          unzip -q gradle.zip -d "$GITHUB_WORKSPACE/gradle"
+          echo "$GITHUB_WORKSPACE/gradle/gradle-7.5/bin" >> $GITHUB_PATH
+
       - name: Install Android SDK command-line tools
         run: |
           set -e
