@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Verstuk — мастерская</title>
+    
+    <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232e7d32' rx='20'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white'%3E🔨%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232e7d32' rx='20'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white'%3E🪑%3C/text%3E%3C/svg%3E">
+    <meta name="theme-color" content="#2e7d32">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; padding-bottom: 70px; }
+        .tabs { display: flex; background: white; position: fixed; bottom: 0; left: 0; right: 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; overflow-x: auto; }
+        .tab { flex: 1; text-align: center; padding: 10px 2px; background: white; border: none; font-size: 10px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .tab.active { background: #2e7d32; color: white; }
+        .page { display: none; padding: 15px; padding-bottom: 80px; }
+        .page.active { display: block; }
+        .card { background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .client-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; }
+        .client-name { font-size: 18px; font-weight: bold; color: #2e7d32; cursor: pointer; }
+        .client-contact { font-size: 11px; color: #666; margin: 5px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        .client-contact span { background: #f0f0f0; padding: 2px 8px; border-radius: 15px; }
+        .client-note { font-size: 12px; background: #fff8e1; padding: 6px; border-radius: 8px; margin: 5px 0; border-left: 3px solid #ff9800; }
+        .material-used { background: #e8f5e9; padding: 6px; border-radius: 8px; margin-top: 5px; font-size: 11px; }
+        .btn-icon { background: #2e7d32; color: white; border: none; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 11px; margin: 2px; }
+        .btn-small { background: #ff9800; }
+        .btn-red { background: #f44336; }
+        .btn-blue { background: #2196f3; }
+        .btn-purple { background: #9c27b0; }
+        .task-item { background: #f9f9f9; border-radius: 8px; margin-bottom: 6px; padding: 8px; }
+        .task-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px; }
+        .task-name { font-weight: 500; font-size: 13px; }
+        .task-datetime { font-size: 10px; color: #f44336; }
+        .task-done { text-decoration: line-through; opacity: 0.6; }
+        .price-table, .stock-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+        .price-table th, .price-table td, .stock-table th, .stock-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        .price-table th, .stock-table th { background: #2e7d32; color: white; }
+        .stock-control { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        .stock-control button { width: 28px; height: 28px; border-radius: 50%; border: none; background: #2e7d32; color: white; font-size: 16px; cursor: pointer; }
+        .stock-control input { width: 55px; padding: 4px; text-align: center; border: 1px solid #ccc; border-radius: 6px; }
+        .btn { background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; margin: 5px 0; font-size: 14px; width: 100%; }
+        .empty { color: #999; text-align: center; padding: 20px; background: white; border-radius: 12px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 16px; padding: 20px; max-height: 80%; overflow-y: auto; }
+        .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 6px; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .modal-buttons button { flex: 1; padding: 8px; border-radius: 6px; cursor: pointer; }
+        .warning { background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px; margin-bottom: 15px; font-size: 12px; }
+        .photo-preview { max-width: 100%; max-height: 120px; border-radius: 6px; margin-top: 5px; cursor: pointer; }
+        .photo-full { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .photo-full img { max-width: 95%; max-height: 95%; }
+        .file-content { font-size: 11px; color: #666; margin-top: 4px; padding: 4px; background: #fff; border-radius: 6px; white-space: pre-wrap; }
+        .file-item { background: #f9f9f9; border-radius: 8px; margin-bottom: 6px; padding: 8px; }
+        .file-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px; }
+        .file-name { font-weight: 500; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="tabs">
+    <button class="tab active" data-page="clients">📋 Клиенты</button>
+    <button class="tab" data-page="tasks">⏰ Задачи</button>
+    <button class="tab" data-page="templates">📋 Шаблоны</button>
+    <button class="tab" data-page="prices">💰 Прайсы</button>
+    <button class="tab" data-page="stock">📦 Склад</button>
+    <button class="tab" data-page="backup">💾 Бэкап</button>
+</div>
+
+<!-- Клиенты -->
+<div id="clients" class="page active">
+    <button class="btn" id="addClientBtn">+ Новый клиент</button>
+    <div id="clientsList"></div>
+</div>
+
+<!-- Задачи -->
+<div id="tasks" class="page">
+    <button class="btn" id="addTaskBtn">+ Новая задача</button>
+    <div id="tasksList"></div>
+</div>
+
+<!-- Шаблоны смет -->
+<div id="templates" class="page">
+    <button class="btn" id="addTemplateBtn">+ Создать шаблон</button>
+    <div id="templatesList"></div>
+</div>
+
+<!-- Прайсы -->
+<div id="prices" class="page">
+    <button class="btn" id="addPriceBtn">+ Добавить товар</button>
+    <div id="pricesList"></div>
+</div>
+
+<!-- Склад -->
+<div id="stock" class="page">
+    <button class="btn" id="addStockBtn">+ Добавить товар на склад</button>
+    <div id="stockList"></div>
+</div>
+
+<!-- Бэкап -->
+<div id="backup" class="page">
+    <div class="card">
+        <h3>📦 Резервное копирование</h3>
+        <button id="exportBackupBtn" class="btn" style="background:#2e7d32;">💾 Сохранить бэкап</button>
+        <button id="importBackupBtn" class="btn" style="background:#ff9800;">📂 Восстановить</button>
+        <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+        <p style="font-size:12px; margin-top:10px;">✅ Сохраняет клиентов, задачи, шаблоны, прайсы и склад</p>
+    </div>
+</div>
+
+<!-- Модалки -->
+<div id="clientModal" class="modal"><div class="modal-content"><h3>Клиент</h3><input id="clientName" placeholder="Имя"><input id="clientPhone" placeholder="Телефон"><input id="clientSocial" placeholder="Telegram / WhatsApp"><textarea id="clientNote" rows="2" placeholder="Пометки..."></textarea><div class="modal-buttons"><button id="saveClientBtn">Сохранить</button><button id="closeClientModal">Отмена</button></div></div></div>
+
+<div id="editClientModal" class="modal"><div class="modal-content"><h3>Редактировать клиента</h3><input id="editClientName" placeholder="Имя"><input id="editClientPhone" placeholder="Телефон"><input id="editClientSocial" placeholder="Telegram / WhatsApp"><textarea id="editClientNote" rows="2" placeholder="Пометки..."></textarea><div class="modal-buttons"><button id="updateClientBtn">Сохранить</button><button id="closeEditModal">Отмена</button></div></div></div>
+
+<div id="taskModal" class="modal"><div class="modal-content"><h3>Новая задача</h3><input id="taskName" placeholder="Что сделать?"><input type="datetime-local" id="taskDateTime"><select id="taskClientSelect"><option value="">-- для клиента --</option></select><div class="modal-buttons"><button id="saveTaskBtn">Сохранить</button><button id="closeTaskModal">Отмена</button></div></div></div>
+
+<div id="templateModal" class="modal"><div class="modal-content"><h3>Шаблон сметы</h3><input id="templateName" placeholder="Название (например, Кухня 3м)"><h4>Материалы (товар:количество)</h4><textarea id="templateItems" rows="6" placeholder="Пример:&#10;ДСП 16мм:2&#10;Петли:4&#10;Ручки:2"></textarea><div class="modal-buttons"><button id="saveTemplateBtn">Сохранить</button><button id="closeTemplateModal">Отмена</button></div></div></div>
+
+<div id="useTemplateModal" class="modal"><div class="modal-content"><h3>Применить шаблон</h3><p id="templateNameDisplay"></p><p>Выберите клиента:</p><select id="useTemplateClientSelect"></select><div class="modal-buttons"><button id="applyTemplateBtn">Применить и списать со склада</button><button id="closeUseTemplateModal">Отмена</button></div></div></div>
+
+<div id="addMaterialModal" class="modal"><div class="modal-content"><h3>Списать материалы</h3><p id="materialClientName"></p><select id="materialSelect"><option value="">-- выберите товар --</option></select><input type="number" id="materialQuantity" placeholder="Количество" value="1"><div class="modal-buttons"><button id="saveMaterialBtn">Списать</button><button id="closeMaterialModal">Отмена</button></div></div></div>
+
+<div id="priceModal" class="modal"><div class="modal-content"><h3>Товар в прайс</h3><input id="priceName" placeholder="Товар"><input id="priceCost" placeholder="Цена" type="number"><input id="priceDelivery" placeholder="Срок (дней)"><div class="modal-buttons"><button id="savePriceBtn">Сохранить</button><button id="closePriceModal">Отмена</button></div></div></div>
+
+<div id="stockModal" class="modal"><div class="modal-content"><h3>Товар на склад</h3><input id="stockName" placeholder="Название"><input id="stockQuantity" placeholder="Количество" type="number" value="0"><div class="modal-buttons"><button id="saveStockBtn">Сохранить</button><button id="closeStockModal">Отмена</button></div></div></div>
+
+<div id="fileModal" class="modal"><div class="modal-content"><h3>Добавить файл</h3><input id="fileName" placeholder="Название"><select id="fileType"><option value="text">📝 Текст</option><option value="photo">📸 Фото</option></select><textarea id="fileContent" rows="4" placeholder="Текст или вставьте фото..."></textarea><div class="modal-buttons"><button id="saveFileBtn">Сохранить</button><button id="closeFileModal">Отмена</button></div></div></div>
+
+<script>
+    // Данные
+    let clients = [];
+    let tasks = [];
+    let templates = [];
+    let priceItems = [];
+    let stockItems = [];
+
+    function loadData() {
+        const saved = localStorage.getItem('verstuk_data');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                clients = data.clients || [];
+                tasks = data.tasks || [];
+                templates = data.templates || [];
+                priceItems = data.priceItems || [];
+                stockItems = data.stockItems || [];
+            } catch(e) {}
+        }
+        renderAll();
+        checkReminders();
+        setInterval(checkReminders, 60000);
+    }
+
+    function saveData() {
+        localStorage.setItem('verstuk_data', JSON.stringify({ clients, tasks, templates, priceItems, stockItems }));
+    }
+
+    function renderAll() {
+        renderClients();
+        renderTasks();
+        renderTemplates();
+        renderPrices();
+        renderStock();
+        updateSelects();
+    }
+
+    function updateSelects() {
+        let clientHtml = '<option value="">-- без клиента --</option>';
+        let stockHtml = '<option value="">-- выберите товар --</option>';
+        clients.forEach((c, i) => { clientHtml += `<option value="${i}">${escapeHtml(c.name)}</option>`; });
+        stockItems.forEach((s, i) => { stockHtml += `<option value="${i}">${escapeHtml(s.name)} (остаток: ${s.quantity || 0})</option>`; });
+        const taskSelect = document.getElementById('taskClientSelect');
+        const useSelect = document.getElementById('useTemplateClientSelect');
+        const materialSelect = document.getElementById('materialSelect');
+        if (taskSelect) taskSelect.innerHTML = clientHtml;
+        if (useSelect) useSelect.innerHTML = clientHtml;
+        if (materialSelect) materialSelect.innerHTML = stockHtml;
+    }
+
+    function checkReminders() {
+        const now = new Date();
+        tasks.forEach(task => {
+            if (!task.done && task.datetime && !task.notified) {
+                const taskDate = new Date(task.datetime);
+                if (taskDate <= now && (now - taskDate) < 60000) {
+                    task.notified = true;
+                    saveData();
+                    if (Notification.permission === "granted") {
+                        new Notification("🔔 Verstuk", { body: task.name });
+                    } else {
+                        alert("🔔 Напоминание: " + task.name);
+                    }
+                }
+            }
+        });
+    }
+    if (Notification.permission !== "granted" && Notification.permission !== "denied") Notification.requestPermission();
+
+    function renderClients() {
+        const container = document.getElementById('clientsList');
+        if (!clients.length) { container.innerHTML = '<div class="empty">📭 Нет клиентов</div>'; return; }
+        container.innerHTML = '';
+        clients.forEach((client, idx) => {
+            let contactHtml = '';
+            if (client.phone || client.social) {
+                contactHtml = `<div class="client-contact">${client.phone ? `<span>📞 ${escapeHtml(client.phone)}</span>` : ''}${client.social ? `<span>💬 ${escapeHtml(client.social)}</span>` : ''}</div>`;
+            }
+            let noteHtml = client.note ? `<div class="client-note">📝 ${escapeHtml(client.note)}</div>` : '';
+            
+            let materialsHtml = '';
+            if (client.materialsUsed && client.materialsUsed.length) {
+                materialsHtml = '<div class="material-used"><strong>📦 Потрачено:</strong><br>';
+                client.materialsUsed.forEach(m => { materialsHtml += `• ${escapeHtml(m.name)}: ${m.qty} шт<br>`; });
+                materialsHtml += '</div>';
+            }
+            
+            let filesHtml = '<div class="file-list">';
+            if (client.files && client.files.length) {
+                client.files.forEach((file, fidx) => {
+                    let contentHtml = '';
+                    if (file.type === 'photo' && file.content && file.content.startsWith('data:image')) {
+                        contentHtml = `<img src="${file.content}" class="photo-preview" onclick="viewPhoto('${file.content}')">`;
+                    } else {
+                        contentHtml = `<div class="file-content">${escapeHtml(file.content || '')}</div>`;
+                    }
+                    filesHtml += `<div class="file-item"><div class="file-header"><span class="file-name">${file.type === 'photo' ? '📸' : '📝'} ${escapeHtml(file.name)}</span><button class="btn-icon btn-red" onclick="deleteFile(${idx},${fidx})">Удалить</button></div>${contentHtml}</div>`;
+                });
+            } else {
+                filesHtml += '<div class="empty">Нет файлов</div>';
+            }
+            filesHtml += '</div>';
+            
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="client-header">
+                    <span class="client-name" onclick="editClient(${idx})">👤 ${escapeHtml(client.name)}</span>
+                    <div>
+                        <button class="btn-icon" onclick="openFileModal(${idx})">+ Файл</button>
+                        <button class="btn-icon btn-small" onclick="attachRealFile(${idx})">📎 Выбрать</button>
+                        <button class="btn-icon btn-purple" onclick="openAddMaterial(${idx})">📦 Расход</button>
+                        <button class="btn-icon btn-blue" onclick="addTaskForClient(${idx})">⏰ Задача</button>
+                        <button class="btn-icon btn-red" onclick="deleteClient(${idx})">🗑</button>
+                    </div>
+                </div>
+                ${contactHtml}
+                ${noteHtml}
+                ${materialsHtml}
+                ${filesHtml}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderTasks() {
+        const container = document.getElementById('tasksList');
+        if (!tasks.length) { container.innerHTML = '<div class="empty">⏰ Нет задач</div>'; return; }
+        container.innerHTML = '';
+        tasks.forEach((task, idx) => {
+            const clientName = task.clientId !== undefined && clients[task.clientId] ? clients[task.clientId].name : null;
+            const datetimeStr = task.datetime ? `📅 ${new Date(task.datetime).toLocaleString()}` : '';
+            const isUrgent = task.datetime && new Date(task.datetime) <= new Date() && !task.done;
+            
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="task-header">
+                    <span class="task-name ${task.done ? 'task-done' : ''}">${task.done ? '✅' : '⏰'} ${escapeHtml(task.name)} ${isUrgent ? '🔴' : ''}</span>
+                    <div>
+                        ${!task.done ? `<button class="btn-icon btn-small" onclick="toggleTaskDone(${idx})">✅ Выполнить</button>` : `<button class="btn-icon" onclick="toggleTaskDone(${idx})">↩️ Вернуть</button>`}
+                        <button class="btn-icon btn-red" onclick="deleteTask(${idx})">🗑</button>
+                    </div>
+                </div>
+                <div style="font-size:11px; color:#666;">${datetimeStr} ${clientName ? `👤 ${clientName}` : ''}</div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderTemplates() {
+        const container = document.getElementById('templatesList');
+        if (!templates.length) { container.innerHTML = '<div class="empty">📋 Нет шаблонов. Создайте свой!</div>'; return; }
+        container.innerHTML = '';
+        templates.forEach((template, idx) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            let itemsHtml = '<div style="font-size:11px; margin-top:5px;">';
+            template.items.forEach(item => { itemsHtml += `• ${item.name}: ${item.qty} шт<br>`; });
+            itemsHtml += '</div>';
+            card.innerHTML = `
+                <div class="client-header">
+                    <span class="client-name">📋 ${escapeHtml(template.name)}</span>
+                    <div>
+                        <button class="btn-icon btn-blue" onclick="useTemplate(${idx})">Применить</button>
+                        <button class="btn-icon btn-red" onclick="deleteTemplate(${idx})">Удалить</button>
+                    </div>
+                </div>
+                ${itemsHtml}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderPrices() {
+        const container = document.getElementById('pricesList');
+        if (!priceItems.length) { container.innerHTML = '<div class="empty">💰 Нет товаров</div>'; return; }
+        let html = '<table class="price-table"><tr><th>Товар</th><th>Цена</th><th>Срок</th><th></th></tr>';
+        priceItems.forEach((item, idx) => {
+            html += `<tr>
+                <td>${escapeHtml(item.name)}</td>
+                <td>${item.cost || 0} ₽</td>
+                <td>${item.delivery || '-'} дн.</td>
+                <td><button class="btn-icon btn-red" onclick="deletePriceItem(${idx})">Удалить</button></td>
+            </tr>`;
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    }
+
+    function renderStock() {
+        const container = document.getElementById('stockList');
+        if (!stockItems.length) { container.innerHTML = '<div class="empty">📦 Склад пуст</div>'; return; }
+        let html = '<table class="stock-table"><tr><th>Товар</th><th>Количество</th><th></th></tr>';
+        stockItems.forEach((item, idx) => {
+            html += `<tr>
+                <td>${escapeHtml(item.name)}</td>
+                <td><div class="stock-control">
+                        <button onclick="changeStock(${idx}, -1)">-</button>
+                        <span id="stockQty_${idx}">${item.quantity || 0}</span>
+                        <button onclick="changeStock(${idx}, 1)">+</button>
+                        <input type="number" id="stockInput_${idx}" placeholder="новое" style="width:55px;">
+                        <button onclick="setStock(${idx})">Уст</button>
+                    </div></td>
+                <td><button class="btn-icon btn-red" onclick="deleteStockItem(${idx})">Удалить</button></td>
+            </tr>`;
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    }
+
+    // Глобальные функции
+    window.deleteFile = (i,f) => { if(clients[i].files) clients[i].files.splice(f,1); saveData(); renderClients(); };
+    window.deleteClient = (i) => { if(confirm('Удалить клиента?')){ clients.splice(i,1); saveData(); renderAll(); } };
+    window.deletePriceItem = (i) => { priceItems.splice(i,1); saveData(); renderPrices(); };
+    window.deleteStockItem = (i) => { stockItems.splice(i,1); saveData(); renderStock(); };
+    window.deleteTask = (i) => { tasks.splice(i,1); saveData(); renderTasks(); };
+    window.deleteTemplate = (i) => { templates.splice(i,1); saveData(); renderTemplates(); };
+    window.toggleTaskDone = (i) => { tasks[i].done = !tasks[i].done; saveData(); renderTasks(); };
+    
+    window.changeStock = (i,d) => { let q = (stockItems[i].quantity||0)+d; if(q<0) q=0; stockItems[i].quantity=q; saveData(); document.getElementById(`stockQty_${i}`).innerText=q; };
+    window.setStock = (i) => { let v=parseInt(document.getElementById(`stockInput_${i}`).value); if(isNaN(v)) v=0; stockItems[i].quantity=v; saveData(); document.getElementById(`stockQty_${i}`).innerText=v; };
+    
+    window.viewPhoto = (src) => { let d=document.createElement('div'); d.className='photo-full'; d.innerHTML=`<img src="${src}">`; d.onclick=()=>d.remove(); document.body.appendChild(d); };
+    
+    window.editClient = (idx) => {
+        const c = clients[idx];
+        document.getElementById('editClientName').value = c.name;
+        document.getElementById('editClientPhone').value = c.phone || '';
+        document.getElementById('editClientSocial').value = c.social || '';
+        document.getElementById('editClientNote').value = c.note || '';
+        window.editClientIdx = idx;
+        document.getElementById('editClientModal').style.display = 'flex';
+    };
+    
+    window.openAddMaterial = (idx) => {
+        window.currentClientIdx = idx;
+        document.getElementById('materialClientName').innerText = clients[idx].name;
+        updateSelects();
+        document.getElementById('materialSelect').value = '';
+        document.getElementById('materialQuantity').value = '1';
+        document.getElementById('addMaterialModal').style.display = 'flex';
+    };
+    
+    window.addTaskForClient = (idx) => {
+        document.getElementById('taskName').value = '';
+        document.getElementById('taskDateTime').value = '';
+        document.getElementById('taskClientSelect').value = idx;
+        document.getElementById('taskModal').style.display = 'flex';
+    };
+    
+    window.useTemplate = (idx) => {
+        window.currentTemplateIdx = idx;
+        document.getElementById('templateNameDisplay').innerText = templates[idx].name;
+        updateSelects();
+        document.getElementById('useTemplateModal').style.display = 'flex';
+    };
+    
+    window.attachRealFile = (idx) => {
+        let inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = 'image/*,application/pdf,.txt';
+        inp.onchange = (e) => {
+            let f = e.target.files[0];
+            if (!f) return;
+            let r = new FileReader();
+            r.onload = (ev) => {
+                if (!clients[idx].files) clients[idx].files = [];
+                let type = 'text', cont = ev.target.result;
+                if (f.type.startsWith('image/')) type = 'photo';
+                else if (f.type === 'application/pdf') cont = `[PDF: ${f.name}]`;
+                clients[idx].files.push({ name: f.name, type: type, content: cont });
+                saveData();
+                renderClients();
+            };
+            if (f.type.startsWith('image/')) r.readAsDataURL(f);
+            else r.readAsText(f);
+        };
+        inp.click();
+    };
+    
+    let currentClient = null;
+    window.openFileModal = (idx) => { currentClient = idx; document.getElementById('fileName').value = ''; document.getElementById('fileContent').value = ''; document.getElementById('fileModal').style.display = 'flex'; };
+    
+    // Обработчики модалок
+    document.getElementById('updateClientBtn').onclick = () => {
+        const idx = window.editClientIdx;
+        clients[idx].name = document.getElementById('editClientName').value.trim();
+        clients[idx].phone = document.getElementById('editClientPhone').value;
+        clients[idx].social = document.getElementById('editClientSocial').value;
+        clients[idx].note = document.getElementById('editClientNote').value;
+        saveData();
+        renderClients();
+        document.getElementById('editClientModal').style.display = 'none';
+    };
+    document.getElementById('closeEditModal').onclick = () => document.getElementById('editClientModal').style.display = 'none';
+    
+    document.getElementById('saveMaterialBtn').onclick = () => {
+        const clientIdx = window.currentClientIdx;
+        const stockIdx = document.getElementById('materialSelect').value;
+        const qty = parseInt(document.getElementById('materialQuantity').value);
+        if (stockIdx === '') { alert('Выберите товар'); return; }
+        if (isNaN(qty) || qty <= 0) { alert('Введите количество'); return; }
+        
+        const stockItem = stockItems[stockIdx];
+        if (stockItem.quantity < qty) { alert(`На складе только ${stockItem.quantity} шт`); return; }
+        
+        stockItem.quantity -= qty;
+        if (!clients[clientIdx].materialsUsed) clients[clientIdx].materialsUsed = [];
+        clients[clientIdx].materialsUsed.push({ name: stockItem.name, qty: qty, date: new Date().toISOString() });
+        
+        saveData();
+        renderAll();
+        document.getElementById('addMaterialModal').style.display = 'none';
+        alert(`✅ Списано ${qty} шт "${stockItem.name}"`);
+    };
+    document.getElementById('closeMaterialModal').onclick = () => document.getElementById('addMaterialModal').style.display = 'none';
+    
+    document.getElementById('applyTemplateBtn').onclick = () => {
+        const template = templates[window.currentTemplateIdx];
+        const clientId = document.getElementById('useTemplateClientSelect').value;
+        if (clientId === '') { alert('Выберите клиента'); return; }
+        
+        let canApply = true;
+        let errors = [];
+        template.items.forEach(item => {
+            const stockItem = stockItems.find(s => s.name === item.name);
+            if (!stockItem) {
+                errors.push(`"${item.name}" нет на складе`);
+                canApply = false;
+            } else if (stockItem.quantity < item.qty) {
+                errors.push(`"${item.name}" только ${stockItem.quantity} шт, нужно ${item.qty}`);
+                canApply = false;
+            }
+        });
+        
+        if (!canApply) {
+            alert('❌ Не хватает материалов:\n' + errors.join('\n'));
+            return;
+        }
+        
+        template.items.forEach(item => {
+            const stockItem = stockItems.find(s => s.name === item.name);
+            stockItem.quantity -= item.qty;
+            if (!clients[clientId].materialsUsed) clients[clientId].materialsUsed = [];
+            clients[clientId].materialsUsed.push({ name: item.name, qty: item.qty, date: new Date().toISOString(), fromTemplate: template.name });
+        });
+        
+        saveData();
+        renderAll();
+        document.getElementById('useTemplateModal').style.display = 'none';
+        alert(`✅ Шаблон "${template.name}" применён к ${clients[clientId].name}\nМатериалы списаны со склада`);
+    };
+    document.getElementById('closeUseTemplateModal').onclick = () => document.getElementById('useTemplateModal').style.display = 'none';
+    
+    document.getElementById('saveFileBtn').onclick = () => {
+        let n = document.getElementById('fileName').value.trim();
+        let t = document.getElementById('fileType').value;
+        let c = document.getElementById('fileContent').value.trim();
+        if (!n) { alert('Введите название'); return; }
+        if (!clients[currentClient].files) clients[currentClient].files = [];
+        clients[currentClient].files.push({ name: n, type: t, content: c });
+        saveData();
+        renderClients();
+        document.getElementById('fileModal').style.display = 'none';
+    };
+    document.getElementById('closeFileModal').onclick = () => document.getElementById('fileModal').style.display = 'none';
+    
+    document.getElementById('addClientBtn').onclick = () => { 
+        document.getElementById('clientName').value = ''; 
+        document.getElementById('clientPhone').value = ''; 
+        document.getElementById('clientSocial').value = ''; 
+        document.getElementById('clientNote').value = ''; 
+        document.getElementById('clientModal').style.display = 'flex'; 
+    };
+    document.getElementById('saveClientBtn').onclick = () => { 
+        let n = document.getElementById('clientName').value.trim(); 
+        if(n){ 
+            clients.push({ 
+                name: n, 
+                phone: document.getElementById('clientPhone').value, 
+                social: document.getElementById('clientSocial').value, 
+                note: document.getElementById('clientNote').value, 
+                files: [] 
+            }); 
+            saveData(); 
+            renderAll(); 
+        } 
+        document.getElementById('clientModal').style.display = 'none'; 
+    };
+    document.getElementById('closeClientModal').onclick = () => document.getElementById('clientModal').style.display = 'none';
+    
+    document.getElementById('addTaskBtn').onclick = () => { 
+        document.getElementById('taskName').value = ''; 
+        document.getElementById('taskDateTime').value = ''; 
+        updateSelects(); 
+        document.getElementById('taskClientSelect').value = ''; 
+        document.getElementById('taskModal').style.display = 'flex'; 
+    };
+    document.getElementById('saveTaskBtn').onclick = () => { 
+        let n = document.getElementById('taskName').value.trim(); 
+        if(n){ 
+            let cid = document.getElementById('taskClientSelect').value; 
+            tasks.push({ 
+                name: n, 
+                datetime: document.getElementById('taskDateTime').value, 
+                clientId: cid !== '' ? parseInt(cid) : undefined, 
+                done: false, 
+                notified: false 
+            }); 
+            saveData(); 
+            renderTasks(); 
+        } 
+        document.getElementById('taskModal').style.display = 'none'; 
+    };
+    document.getElementById('closeTaskModal').onclick = () => document.getElementById('taskModal').style.display = 'none';
+    
+    document.getElementById('addTemplateBtn').onclick = () => { 
+        document.getElementById('templateName').value = ''; 
+        document.getElementById('templateItems').value = ''; 
+        document.getElementById('templateModal').style.display = 'flex'; 
+    };
+    document.getElementById('saveTemplateBtn').onclick = () => { 
+        let n = document.getElementById('templateName').value.trim(); 
+        let itemsText = document.getElementById('templateItems').value; 
+        if(!n){ alert('Введите название'); return; } 
+        let items = []; 
+        let lines = itemsText.split('\n'); 
+        for(let line of lines){ 
+            let parts = line.split(':'); 
+            if(parts.length===2 && parts[0].trim() && parseInt(parts[1])){ 
+                items.push({ name: parts[0].trim(), qty: parseInt(parts[1]) }); 
+            } 
+        } 
+        if(items.length===0){ alert('Добавьте хотя бы один материал (формат: Название:количество)'); return; } 
+        templates.push({ name: n, items: items }); 
+        saveData(); 
+        renderTemplates(); 
+        document.getElementById('templateModal').style.display = 'none'; 
+    };
+    document.getElementById('closeTemplateModal').onclick = () => document.getElementById('templateModal').style.display = 'none';
+    
+    document.getElementById('addPriceBtn').onclick = () => document.getElementById('priceModal').style.display = 'flex';
+    document.getElementById('savePriceBtn').onclick = () => { 
+        let n = document.getElementById('priceName').value.trim(); 
+        if(n){ 
+            priceItems.push({ 
+                name: n, 
+                cost: parseInt(document.getElementById('priceCost').value)||0, 
+                delivery: document.getElementById('priceDelivery').value 
+            }); 
+            saveData(); 
+            renderPrices(); 
+        } 
+        document.getElementById('priceModal').style.display = 'none'; 
+    };
+    document.getElementById('closePriceModal').onclick = () => document.getElementById('priceModal').style.display = 'none';
+    
+    document.getElementById('addStockBtn').onclick = () => document.getElementById('stockModal').style.display = 'flex';
+    document.getElementById('saveStockBtn').onclick = () => { 
+        let n = document.getElementById('stockName').value.trim(); 
+        if(n){ 
+            stockItems.push({ name: n, quantity: parseInt(document.getElementById('stockQuantity').value)||0 }); 
+            saveData(); 
+            renderStock(); 
+        } 
+        document.getElementById('stockModal').style.display = 'none'; 
+    };
+    document.getElementById('closeStockModal').onclick = () => document.getElementById('stockModal').style.display = 'none';
+    
+    // Бэкап
+    function exportToFile() {
+        const data = { clients, tasks, templates, priceItems, stockItems, version: '1.0', date: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `verstuk_backup_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert('✅ Бэкап сохранён');
+    }
+    function importFromFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.clients) clients = data.clients;
+                if (data.tasks) tasks = data.tasks;
+                if (data.templates) templates = data.templates;
+                if (data.priceItems) priceItems = data.priceItems;
+                if (data.stockItems) stockItems = data.stockItems;
+                saveData();
+                renderAll();
+                alert('✅ Восстановлено!');
+            } catch(err) { alert('❌ Ошибка файла'); }
+        };
+        reader.readAsText(file);
+    }
+    document.getElementById('exportBackupBtn').onclick = exportToFile;
+    document.getElementById('importBackupBtn').onclick = () => document.getElementById('restoreFileInput').click();
+    document.getElementById('restoreFileInput').onchange = (e) => { if(e.target.files.length) importFromFile(e.target.files[0]); e.target.value = ''; };
+    
+    // Вкладки
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.onclick = () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(tab.dataset.page).classList.add('active');
+        };
+    });
+    
+    function escapeHtml(s) { if(!s) return ''; return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+    
+    loadData();
+</script>
+</body>
+</html>
