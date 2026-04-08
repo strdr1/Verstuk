@@ -79,6 +79,17 @@ jobs:
           # copy repository files to www, excluding git and workflow files
           rsync -a --exclude='.git' --exclude='.github' --exclude='android-app' ./ android-app/www/ || true
 
+      - name: Ensure Gradle wrapper uses 7.5
+        run: |
+          set -e
+          if [ -d "android-app/platforms/android" ]; then
+            cd android-app/platforms/android
+            gradle wrapper --gradle-version 7.5
+            echo "Gradle wrapper updated to 7.5"
+          else
+            echo "android-app/platforms/android not found, skipping wrapper update"
+          fi
+
       - name: Build debug APK
         run: |
           set -e
