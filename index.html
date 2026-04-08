@@ -124,11 +124,20 @@
 <!-- Бэкап -->
 <div id="backup" class="page">
     <div class="card">
-        <h3>📦 Резервное копирование</h3>
+        <h3>📤 Сохранить бэкап</h3>
+        <p style="font-size:12px; color:#666; margin-bottom:8px;">Сохраняет файл <b>.json</b> в Загрузки или отправляет в Telegram/на почту</p>
         <button id="exportBackupBtn" class="btn" style="background:#2e7d32;">💾 Сохранить бэкап</button>
-        <button id="importBackupBtn" class="btn" style="background:#ff9800;">📂 Восстановить</button>
+        <button id="exportCopyBtn" class="btn" style="background:#607d8b; margin-top:4px;">📋 Скопировать в буфер</button>
+        <div id="exportStatus" style="font-size:12px; margin-top:6px; color:#2e7d32; display:none;"></div>
+    </div>
+    <div class="card" style="margin-top:10px;">
+        <h3>📥 Восстановить бэкап</h3>
+        <p style="font-size:12px; color:#666; margin-bottom:8px;">Выберите файл .json или вставьте текст бэкапа</p>
         <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
-        <p style="font-size:12px; margin-top:10px;">✅ Сохраняет клиентов, задачи, шаблоны, прайсы и склад</p>
+        <button id="importFileBtn" class="btn" style="background:#ff9800;">📂 Выбрать файл .json</button>
+        <p style="font-size:11px; color:#999; margin:8px 0 4px;">— или вставьте текст бэкапа вручную —</p>
+        <textarea id="importTextarea" rows="4" placeholder='{"clients":[...],...}' style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:11px;"></textarea>
+        <button id="importBackupBtn" class="btn" style="background:#757575; margin-top:6px;">📥 Восстановить из текста</button>
     </div>
 </div>
 
@@ -141,7 +150,7 @@
 
 <div id="templateModal" class="modal"><div class="modal-content"><h3>Шаблон сметы</h3><input id="templateName" placeholder="Название (например, Кухня 3м)"><h4>Материалы (товар:количество)</h4><textarea id="templateItems" rows="6" placeholder="Пример:&#10;ДСП 16мм:2&#10;Петли:4&#10;Ручки:2"></textarea><div class="modal-buttons"><button id="saveTemplateBtn">Сохранить</button><button id="closeTemplateModal">Отмена</button></div></div></div>
 
-<div id="useTemplateModal" class="modal"><div class="modal-content"><h3>Применить шаблон</h3><p id="templateNameDisplay"></p><p>Выберите клиента:</p><select id="useTemplateClientSelect"></select><div class="modal-buttons"><button id="applyTemplateBtn">Применить и списать со склада</button><button id="closeUseTemplateModal">Отмена</button></div></div></div>
+<div id="useTemplateModal" class="modal"><div class="modal-content"><h3>Применить шаблон</h3><p id="templateNameDisplay" style="font-weight:bold; margin-bottom:8px;"></p><div id="templateBreakdown" style="font-size:12px; background:#f9f9f9; border-radius:8px; padding:8px; margin-bottom:10px;"></div><p>Выберите клиента:</p><select id="useTemplateClientSelect"></select><div class="modal-buttons"><button id="applyTemplateBtn">Применить и списать со склада</button><button id="closeUseTemplateModal">Отмена</button></div></div></div>
 
 <div id="addMaterialModal" class="modal"><div class="modal-content"><h3>Списать материалы</h3><p id="materialClientName"></p><select id="materialSelect"><option value="">-- выберите товар --</option></select><input type="number" id="materialQuantity" placeholder="Количество" value="1"><div class="modal-buttons"><button id="saveMaterialBtn">Списать</button><button id="closeMaterialModal">Отмена</button></div></div></div>
 
@@ -234,8 +243,17 @@
             
             let materialsHtml = '';
             if (client.materialsUsed && client.materialsUsed.length) {
+                const agg = {};
+                client.materialsUsed.forEach(m => { agg[m.name] = (agg[m.name] || 0) + m.qty; });
+                let totalCost = 0, hasCost = false;
                 materialsHtml = '<div class="material-used"><strong>📦 Потрачено:</strong><br>';
-                client.materialsUsed.forEach(m => { materialsHtml += `• ${escapeHtml(m.name)}: ${m.qty} шт<br>`; });
+                Object.entries(agg).forEach(([name, qty]) => {
+                    const priceItem = findByName(priceItems, name);
+                    const cost = priceItem ? priceItem.cost * qty : null;
+                    if (cost !== null) { totalCost += cost; hasCost = true; }
+                    materialsHtml += `• ${escapeHtml(name)}: ${qty} шт${cost !== null ? ` — ${cost} ₽` : ''}<br>`;
+                });
+                if (hasCost) materialsHtml += `<strong>💰 Итого: ~${totalCost} ₽</strong>`;
                 materialsHtml += '</div>';
             }
             
@@ -302,6 +320,10 @@
         });
     }
 
+    function findByName(arr, name) {
+        return arr.find(x => x.name.trim().toLowerCase() === name.trim().toLowerCase());
+    }
+
     function renderTemplates() {
         const container = document.getElementById('templatesList');
         if (!templates.length) { container.innerHTML = '<div class="empty">📋 Нет шаблонов. Создайте свой!</div>'; return; }
@@ -309,9 +331,24 @@
         templates.forEach((template, idx) => {
             const card = document.createElement('div');
             card.className = 'card';
+            let totalCost = 0;
+            let allPriced = true;
             let itemsHtml = '<div style="font-size:11px; margin-top:5px;">';
-            template.items.forEach(item => { itemsHtml += `• ${item.name}: ${item.qty} шт<br>`; });
+            template.items.forEach(item => {
+                const priceItem = findByName(priceItems, item.name);
+                const stockItem = findByName(stockItems, item.name);
+                const cost = priceItem ? priceItem.cost * item.qty : null;
+                if (cost !== null) totalCost += cost; else allPriced = false;
+                const stockQty = stockItem ? stockItem.quantity : 0;
+                const stockIcon = !stockItem ? '❌' : stockItem.quantity >= item.qty ? '✅' : '⚠️';
+                itemsHtml += `• ${escapeHtml(item.name)}: ${item.qty} шт`;
+                if (cost !== null) itemsHtml += ` — <b>${cost} ₽</b>`;
+                itemsHtml += ` | склад: ${stockIcon}${stockQty}<br>`;
+            });
             itemsHtml += '</div>';
+            const totalHtml = totalCost > 0
+                ? `<div style="font-size:12px;font-weight:bold;color:#2e7d32;margin-top:4px;">💰 Итого: ${totalCost} ₽${!allPriced ? ' (неполно)' : ''}</div>`
+                : '';
             card.innerHTML = `
                 <div class="client-header">
                     <span class="client-name">📋 ${escapeHtml(template.name)}</span>
@@ -320,7 +357,7 @@
                         <button class="btn-icon btn-red" onclick="deleteTemplate(${idx})">Удалить</button>
                     </div>
                 </div>
-                ${itemsHtml}
+                ${itemsHtml}${totalHtml}
             `;
             container.appendChild(card);
         });
@@ -405,7 +442,20 @@
     
     window.useTemplate = (idx) => {
         window.currentTemplateIdx = idx;
-        document.getElementById('templateNameDisplay').innerText = templates[idx].name;
+        const template = templates[idx];
+        document.getElementById('templateNameDisplay').innerText = '📋 ' + template.name;
+        let totalCost = 0, allPriced = true, breakdown = '';
+        template.items.forEach(item => {
+            const priceItem = findByName(priceItems, item.name);
+            const stockItem = findByName(stockItems, item.name);
+            const cost = priceItem ? priceItem.cost * item.qty : null;
+            if (cost !== null) totalCost += cost; else allPriced = false;
+            const stockQty = stockItem ? stockItem.quantity : 0;
+            const stockIcon = !stockItem ? '❌' : stockItem.quantity >= item.qty ? '✅' : '⚠️';
+            breakdown += `• ${item.name}: ${item.qty} шт${cost !== null ? ' — ' + cost + ' ₽' : ''} | склад: ${stockIcon}${stockQty}<br>`;
+        });
+        if (totalCost > 0) breakdown += `<b>💰 Итого: ${totalCost} ₽${!allPriced ? ' (неполно)' : ''}</b>`;
+        document.getElementById('templateBreakdown').innerHTML = breakdown;
         updateSelects();
         document.getElementById('useTemplateModal').style.display = 'flex';
     };
@@ -623,37 +673,86 @@
     document.getElementById('closeStockModal').onclick = () => document.getElementById('stockModal').style.display = 'none';
     
     // Бэкап
-    function exportToFile() {
-        const data = { clients, tasks, templates, priceItems, stockItems, version: '1.0', date: new Date().toISOString() };
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `verstuk_backup_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        alert('✅ Бэкап сохранён');
+    function getBackupData() {
+        return { clients, tasks, templates, priceItems, stockItems, version: '1.0', date: new Date().toISOString() };
+    }
+    function showExportStatus(msg) {
+        const el = document.getElementById('exportStatus');
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+
+    document.getElementById('exportBackupBtn').onclick = async () => {
+        const text = JSON.stringify(getBackupData(), null, 2);
+        const filename = `backup_${new Date().toISOString().slice(0,10)}.json`;
+        const blob = new Blob([text], { type: 'application/json' });
+        const file = new File([blob], filename, { type: 'application/json' });
+
+        // 1. Поделиться файлом (Android предложит Загрузки / Telegram / и т.д.)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: filename });
+                return;
+            } catch(e) { /* отменил или не поддерживается */ }
+        }
+        // 2. Поделиться текстом
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: filename, text: text });
+                return;
+            } catch(e) {}
+        }
+        // 3. Скопировать в буфер
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showExportStatus('✅ Скопировано в буфер обмена — вставьте в Заметки или Telegram');
+                return;
+            } catch(e) {}
+        }
+        // 4. Показать в textarea
+        document.getElementById('importTextarea').value = text;
+        showExportStatus('Текст бэкапа появился в поле ниже — скопируйте и сохраните');
+    };
+
+    document.getElementById('exportCopyBtn').onclick = async () => {
+        const text = JSON.stringify(getBackupData(), null, 2);
+        try {
+            await navigator.clipboard.writeText(text);
+            showExportStatus('✅ Скопировано в буфер! Вставьте в Заметки, Telegram себе и т.д.');
+        } catch(e) {
+            document.getElementById('importTextarea').value = text;
+            showExportStatus('Буфер недоступен — текст появился в поле восстановления');
+        }
+    };
+
+    function importFromText(text) {
+        try {
+            const data = JSON.parse(text.trim());
+            if (data.clients) clients = data.clients;
+            if (data.tasks) tasks = data.tasks;
+            if (data.templates) templates = data.templates;
+            if (data.priceItems) priceItems = data.priceItems;
+            if (data.stockItems) stockItems = data.stockItems;
+            saveData();
+            renderAll();
+            document.getElementById('importTextarea').value = '';
+            alert('✅ Восстановлено!');
+        } catch(err) { alert('❌ Ошибка: неверный формат JSON'); }
     }
     function importFromFile(file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data.clients) clients = data.clients;
-                if (data.tasks) tasks = data.tasks;
-                if (data.templates) templates = data.templates;
-                if (data.priceItems) priceItems = data.priceItems;
-                if (data.stockItems) stockItems = data.stockItems;
-                saveData();
-                renderAll();
-                alert('✅ Восстановлено!');
-            } catch(err) { alert('❌ Ошибка файла'); }
-        };
+        reader.onload = (e) => importFromText(e.target.result);
         reader.readAsText(file);
     }
-    document.getElementById('exportBackupBtn').onclick = exportToFile;
-    document.getElementById('importBackupBtn').onclick = () => document.getElementById('restoreFileInput').click();
+    document.getElementById('importFileBtn').onclick = () => document.getElementById('restoreFileInput').click();
     document.getElementById('restoreFileInput').onchange = (e) => { if(e.target.files.length) importFromFile(e.target.files[0]); e.target.value = ''; };
+    document.getElementById('importBackupBtn').onclick = () => {
+        const text = document.getElementById('importTextarea').value.trim();
+        if (!text) { alert('Вставьте текст бэкапа в поле выше'); return; }
+        if (confirm('Восстановить? Текущие данные будут заменены.')) importFromText(text);
+    };
     
     // Вкладки
     document.querySelectorAll('.tab').forEach(tab => {
