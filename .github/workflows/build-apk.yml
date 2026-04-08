@@ -1,0 +1,73 @@
+name: Build APK from HTML (Cordova)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Android SDK command-line tools
+        run: |
+          set -e
+          mkdir -p "$ANDROID_SDK_ROOT"
+          cd "$ANDROID_SDK_ROOT"
+          curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d cmdline-tools-temp
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools-temp/cmdline-tools/* cmdline-tools/latest/
+          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
+          cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Add SDK to PATH
+        run: echo "${{ env.ANDROID_SDK_ROOT }}/platform-tools" >> $GITHUB_PATH
+
+      - name: Install Cordova CLI
+        run: npm install -g cordova@11
+
+      - name: Create Cordova app and add Android
+        run: |
+          set -e
+          rm -rf android-app
+          cordova create android-app com.example.app MyApp
+          cd android-app
+          cordova platform add android || true
+
+      - name: Copy site files into Cordova `www`
+        run: |
+          set -e
+          rm -rf android-app/www/*
+          cp -a index.html android-app/www/ 2>/dev/null || true
+          cp -a sw.js android-app/www/ 2>/dev/null || true
+          # copy other assets if present
+          if [ -d assets ]; then cp -a assets android-app/www/; fi
+
+      - name: Build debug APK
+        run: |
+          set -e
+          cd android-app
+          cordova build android --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: android-app/platforms/android/app/build/outputs/apk/debug/*.apk
