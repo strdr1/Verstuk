@@ -131,7 +131,7 @@
 
 <!-- Склад -->
 <div id="stock" class="page">
-    <button class="btn" id="addStockBtn">+ Добавить товар на склад</button>
+    <button class="btn" id="addStockBtn">+ Добавить материал</button>
     <div id="stockList"></div>
 </div>
 
@@ -162,15 +162,15 @@
 
 <div id="taskModal" class="modal"><div class="modal-content"><h3>Новая задача</h3><input id="taskName" placeholder="Что сделать?"><input type="datetime-local" id="taskDateTime"><select id="taskClientSelect"><option value="">-- для клиента --</option></select><div class="modal-buttons"><button id="saveTaskBtn">Сохранить</button><button id="closeTaskModal">Отмена</button></div></div></div>
 
-<div id="templateModal" class="modal"><div class="modal-content"><h3>📦 Новый набор</h3><input id="templateName" placeholder="Название (например, Кухня, Шкаф купе 2м)"><h4 style="margin:10px 0 4px;">Позиции из прайса:</h4><div id="templateItemsPicker" style="max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:6px;"></div><div class="modal-buttons" style="margin-top:12px;"><button id="saveTemplateBtn">Сохранить</button><button id="closeTemplateModal">Отмена</button></div></div></div>
+<div id="templateModal" class="modal"><div class="modal-content"><h3 id="templateModalTitle">📦 Новый набор</h3><input id="templateName" placeholder="Название (например, Кухня, Шкаф купе 2м)"><h4 style="margin:10px 0 4px;">Позиции из прайса:</h4><div id="templateItemsPicker" style="max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:6px;"></div><div class="modal-buttons" style="margin-top:12px;"><button id="saveTemplateBtn">Сохранить</button><button id="closeTemplateModal">Отмена</button></div></div></div>
 
 <div id="useTemplateModal" class="modal"><div class="modal-content"><h3>Применить набор к клиенту</h3><p id="templateNameDisplay" style="font-weight:bold; margin-bottom:8px;"></p><div id="templateBreakdown" style="font-size:12px; background:#f9f9f9; border-radius:8px; padding:8px; margin-bottom:10px;"></div><p>Клиент:</p><select id="useTemplateClientSelect"></select><div class="modal-buttons"><button id="applyTemplateBtn">✅ Применить и списать со склада</button><button id="closeUseTemplateModal">Отмена</button></div></div></div>
 
 <div id="addMaterialModal" class="modal"><div class="modal-content"><h3>Списать материалы</h3><p id="materialClientName"></p><select id="materialSelect"><option value="">-- выберите товар --</option></select><input type="number" id="materialQuantity" placeholder="Количество" value="1"><div class="modal-buttons"><button id="saveMaterialBtn">Списать</button><button id="closeMaterialModal">Отмена</button></div></div></div>
 
-<div id="priceModal" class="modal"><div class="modal-content"><h3>Товар в прайс</h3><input id="priceName" placeholder="Товар"><input id="priceCost" placeholder="Цена" type="number"><input id="priceDelivery" placeholder="Срок (дней)"><div class="modal-buttons"><button id="savePriceBtn">Сохранить</button><button id="closePriceModal">Отмена</button></div></div></div>
+<div id="priceModal" class="modal"><div class="modal-content"><h3 id="priceModalTitle">Товар / услуга</h3><input id="priceName" placeholder="Название (Стол, Шкафчик, Сборка)"><input id="priceCost" placeholder="Цена продажи (₽)" type="number"><input id="priceDelivery" placeholder="Срок (дней)"><h4 style="margin:10px 0 4px;">Состав (материалы со склада):</h4><div id="priceMaterialsPicker" style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:6px;"></div><div class="modal-buttons" style="margin-top:12px;"><button id="savePriceBtn">Сохранить</button><button id="closePriceModal">Отмена</button></div></div></div>
 
-<div id="stockModal" class="modal"><div class="modal-content"><h3>Товар на склад</h3><input id="stockName" placeholder="Название"><input id="stockQuantity" placeholder="Количество" type="number" value="0"><div class="modal-buttons"><button id="saveStockBtn">Сохранить</button><button id="closeStockModal">Отмена</button></div></div></div>
+<div id="stockModal" class="modal"><div class="modal-content"><h3 id="stockModalTitle">Материал</h3><input id="stockName" placeholder="Название (ДСП 16мм, Петля)"><input id="stockQuantity" placeholder="Количество на складе" type="number" value="0"><div class="modal-buttons"><button id="saveStockBtn">Сохранить</button><button id="closeStockModal">Отмена</button></div></div></div>
 
 <div id="fileModal" class="modal"><div class="modal-content"><h3>Добавить файл</h3><input id="fileName" placeholder="Название"><select id="fileType"><option value="text">📝 Текст</option><option value="photo">📸 Фото</option></select><textarea id="fileContent" rows="4" placeholder="Текст или вставьте фото..."></textarea><div class="modal-buttons"><button id="saveFileBtn">Сохранить</button><button id="closeFileModal">Отмена</button></div></div></div>
 
@@ -214,15 +214,16 @@
 
     function updateSelects() {
         let clientHtml = '<option value="">-- без клиента --</option>';
-        let stockHtml = '<option value="">-- выберите товар --</option>';
         clients.forEach((c, i) => { clientHtml += `<option value="${i}">${escapeHtml(c.name)}</option>`; });
-        stockItems.forEach((s, i) => { stockHtml += `<option value="${i}">${escapeHtml(s.name)} (остаток: ${s.quantity || 0})</option>`; });
+        // Материалы теперь = позиции прайса (изделия/услуги)
+        let priceHtml = '<option value="">-- выберите позицию --</option>';
+        priceItems.forEach((p, i) => { priceHtml += `<option value="${i}">${escapeHtml(p.name)} — ${p.cost || 0} ₽</option>`; });
         const taskSelect = document.getElementById('taskClientSelect');
         const useSelect = document.getElementById('useTemplateClientSelect');
         const materialSelect = document.getElementById('materialSelect');
         if (taskSelect) taskSelect.innerHTML = clientHtml;
         if (useSelect) useSelect.innerHTML = clientHtml;
-        if (materialSelect) materialSelect.innerHTML = stockHtml;
+        if (materialSelect) materialSelect.innerHTML = priceHtml;
     }
 
     function checkReminders() {
@@ -257,18 +258,20 @@
             
             let materialsHtml = '';
             if (client.materialsUsed && client.materialsUsed.length) {
+                // Агрегируем по названию прайсовой позиции
                 const agg = {};
-                client.materialsUsed.forEach(m => { agg[m.name] = (agg[m.name] || 0) + m.qty; });
-                let totalCost = 0, hasCost = false;
-                materialsHtml = '<div class="material-used"><strong>📦 Потрачено:</strong><br>';
-                Object.entries(agg).forEach(([name, qty]) => {
-                    const priceItem = findByName(priceItems, name);
-                    const cost = priceItem ? priceItem.cost * qty : null;
-                    if (cost !== null) { totalCost += cost; hasCost = true; }
-                    materialsHtml += `• ${escapeHtml(name)}: ${qty} шт${cost !== null ? ` — ${cost} ₽` : ''}<br>`;
+                client.materialsUsed.forEach(m => {
+                    if (!agg[m.name]) agg[m.name] = { qty: 0, cost: 0 };
+                    agg[m.name].qty += m.qty;
+                    agg[m.name].cost += m.cost || 0;
                 });
-                if (hasCost) materialsHtml += `<strong>💰 Итого: ~${totalCost} ₽</strong>`;
-                materialsHtml += '</div>';
+                let totalCost = 0;
+                materialsHtml = '<div class="material-used"><strong>📦 Выполнено:</strong><br>';
+                Object.entries(agg).forEach(([name, val]) => {
+                    totalCost += val.cost;
+                    materialsHtml += `• ${escapeHtml(name)}: ${val.qty} шт — <b>${val.cost} ₽</b><br>`;
+                });
+                materialsHtml += `<strong>💰 Итого: ${totalCost} ₽</strong></div>`;
             }
             
             let filesHtml = '<div class="file-list">';
@@ -338,59 +341,87 @@
         return arr.find(x => x.name.trim().toLowerCase() === name.trim().toLowerCase());
     }
 
+    // Считает что улетает со склада при применении набора
+    function calcSetMaterials(template) {
+        const needs = {}; // stockItemName -> totalQty
+        let totalCost = 0;
+        template.items.forEach(item => {
+            const pi = findByName(priceItems, item.name);
+            if (!pi) return;
+            totalCost += (pi.cost || 0) * item.qty;
+            (pi.materials || []).forEach(mat => {
+                needs[mat.name] = (needs[mat.name] || 0) + mat.qty * item.qty;
+            });
+        });
+        return { needs, totalCost };
+    }
+
     function renderTemplates() {
         const container = document.getElementById('templatesList');
-        if (!templates.length) { container.innerHTML = '<div class="empty">📋 Нет шаблонов. Создайте свой!</div>'; return; }
+        if (!templates.length) { container.innerHTML = '<div class="empty">📦 Нет наборов. Создайте набор из прайса!</div>'; return; }
         container.innerHTML = '';
         templates.forEach((template, idx) => {
             const card = document.createElement('div');
             card.className = 'card';
+            let itemsHtml = '<div style="font-size:12px;margin-top:6px;">';
             let totalCost = 0;
-            let allPriced = true;
-            let itemsHtml = '<div style="font-size:11px; margin-top:5px;">';
             template.items.forEach(item => {
-                const priceItem = findByName(priceItems, item.name);
-                const stockItem = findByName(stockItems, item.name);
-                const cost = priceItem ? priceItem.cost * item.qty : null;
-                if (cost !== null) totalCost += cost; else allPriced = false;
-                const stockQty = stockItem ? stockItem.quantity : 0;
-                const stockIcon = !stockItem ? '❌' : stockItem.quantity >= item.qty ? '✅' : '⚠️';
-                itemsHtml += `• ${escapeHtml(item.name)}: ${item.qty} шт`;
-                if (cost !== null) itemsHtml += ` — <b>${cost} ₽</b>`;
-                itemsHtml += ` | склад: ${stockIcon}${stockQty}<br>`;
+                const pi = findByName(priceItems, item.name);
+                const cost = pi ? pi.cost * item.qty : null;
+                if (cost !== null) totalCost += cost;
+                itemsHtml += `<b>• ${escapeHtml(item.name)} × ${item.qty}</b>${cost !== null ? ` — ${cost} ₽` : ''}<br>`;
+                if (pi && pi.materials && pi.materials.length) {
+                    pi.materials.forEach(mat => {
+                        const si = findByName(stockItems, mat.name);
+                        const needed = mat.qty * item.qty;
+                        const icon = !si ? '❌' : si.quantity >= needed ? '✅' : '⚠️';
+                        itemsHtml += `<span style="color:#888;padding-left:12px;">↳ ${escapeHtml(mat.name)}: ${needed} шт ${icon}${si ? si.quantity : 0}</span><br>`;
+                    });
+                }
             });
             itemsHtml += '</div>';
-            const totalHtml = totalCost > 0
-                ? `<div style="font-size:12px;font-weight:bold;color:#2e7d32;margin-top:4px;">💰 Итого: ${totalCost} ₽${!allPriced ? ' (неполно)' : ''}</div>`
-                : '';
+            const totalHtml = totalCost > 0 ? `<div style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:4px;">💰 Итого: ${totalCost} ₽</div>` : '';
             card.innerHTML = `
                 <div class="client-header">
-                    <span class="client-name">📋 ${escapeHtml(template.name)}</span>
+                    <span class="client-name">📦 ${escapeHtml(template.name)}</span>
                     <div>
-                        <button class="btn-icon btn-blue" onclick="useTemplate(${idx})">Применить</button>
-                        <button class="btn-icon btn-red" onclick="deleteTemplate(${idx})">Удалить</button>
+                        <button class="btn-icon btn-blue" onclick="useTemplate(${idx})">▶ Применить</button>
+                        <button class="btn-icon" onclick="editTemplate(${idx})">✏️</button>
+                        <button class="btn-icon btn-red" onclick="deleteTemplate(${idx})">🗑</button>
                     </div>
                 </div>
-                ${itemsHtml}${totalHtml}
-            `;
+                ${itemsHtml}${totalHtml}`;
             container.appendChild(card);
         });
     }
 
     function renderPrices() {
         const container = document.getElementById('pricesList');
-        if (!priceItems.length) { container.innerHTML = '<div class="empty">💰 Нет товаров</div>'; return; }
-        let html = '<table class="price-table"><tr><th>Товар</th><th>Цена</th><th>Срок</th><th></th></tr>';
+        if (!priceItems.length) { container.innerHTML = '<div class="empty">💰 Добавьте товары и услуги</div>'; return; }
+        container.innerHTML = '';
         priceItems.forEach((item, idx) => {
-            html += `<tr>
-                <td>${escapeHtml(item.name)}</td>
-                <td>${item.cost || 0} ₽</td>
-                <td>${item.delivery || '-'} дн.</td>
-                <td><button class="btn-icon btn-red" onclick="deletePriceItem(${idx})">Удалить</button></td>
-            </tr>`;
+            const mats = (item.materials || []).map(m => {
+                const si = findByName(stockItems, m.name);
+                const icon = !si ? '❌' : '✅';
+                return `<span style="font-size:11px;color:#666;">${icon} ${escapeHtml(m.name)}: ${m.qty} шт</span>`;
+            }).join('  ');
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.marginBottom = '8px';
+            card.innerHTML = `
+                <div class="client-header">
+                    <div>
+                        <div style="font-weight:bold;font-size:14px;">${escapeHtml(item.name)}</div>
+                        <div style="font-size:12px;color:#2e7d32;">${item.cost || 0} ₽${item.delivery ? ' · ' + item.delivery + ' дн.' : ''}</div>
+                        ${mats ? `<div style="margin-top:4px;">${mats}</div>` : '<div style="font-size:11px;color:#bbb;">Состав не задан</div>'}
+                    </div>
+                    <div>
+                        <button class="btn-icon" onclick="editPriceItem(${idx})">✏️</button>
+                        <button class="btn-icon btn-red" onclick="deletePriceItem(${idx})">🗑</button>
+                    </div>
+                </div>`;
+            container.appendChild(card);
         });
-        html += '</table>';
-        container.innerHTML = html;
     }
 
     function renderStock() {
@@ -425,6 +456,60 @@
     
     window.changeStock = (i,d) => { let q = (stockItems[i].quantity||0)+d; if(q<0) q=0; stockItems[i].quantity=q; saveData(); document.getElementById(`stockQty_${i}`).innerText=q; };
     window.setStock = (i) => { let v=parseInt(document.getElementById(`stockInput_${i}`).value); if(isNaN(v)) v=0; stockItems[i].quantity=v; saveData(); document.getElementById(`stockQty_${i}`).innerText=v; };
+
+    // Редактирование прайса
+    let editingPriceIdx = null;
+    function openPriceModal(idx = null) {
+        editingPriceIdx = idx;
+        const item = idx !== null ? priceItems[idx] : null;
+        document.getElementById('priceModalTitle').textContent = idx !== null ? 'Редактировать позицию' : 'Новая позиция';
+        document.getElementById('priceName').value = item ? item.name : '';
+        document.getElementById('priceCost').value = item ? item.cost : '';
+        document.getElementById('priceDelivery').value = item ? item.delivery : '';
+        const picker = document.getElementById('priceMaterialsPicker');
+        if (!stockItems.length) {
+            picker.innerHTML = '<p style="color:#999;font-size:12px;padding:6px;">Сначала добавьте материалы на склад</p>';
+        } else {
+            const existing = item ? (item.materials || []) : [];
+            picker.innerHTML = stockItems.map((s, i) => {
+                const cur = existing.find(m => m.name === s.name);
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0;">
+                    <span style="flex:1;font-size:13px;">${escapeHtml(s.name)}<br><span style="font-size:11px;color:#888;">на складе: ${s.quantity}</span></span>
+                    <input type="number" id="matQty_${i}" min="0" value="${cur ? cur.qty : 0}"
+                        style="width:52px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;">
+                    <span style="font-size:11px;color:#999;">шт</span>
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('priceModal').style.display = 'flex';
+    }
+    window.editPriceItem = (idx) => openPriceModal(idx);
+
+    // Редактирование набора
+    let editingTemplateIdx = null;
+    function openTemplateModal(idx = null) {
+        editingTemplateIdx = idx;
+        const tmpl = idx !== null ? templates[idx] : null;
+        document.getElementById('templateModalTitle').textContent = idx !== null ? '✏️ Редактировать набор' : '📦 Новый набор';
+        document.getElementById('templateName').value = tmpl ? tmpl.name : '';
+        const picker = document.getElementById('templateItemsPicker');
+        if (!priceItems.length) {
+            picker.innerHTML = '<p style="color:#999;font-size:12px;padding:8px;">Сначала добавьте позиции в прайс</p>';
+        } else {
+            const existing = tmpl ? (tmpl.items || []) : [];
+            picker.innerHTML = priceItems.map((item, i) => {
+                const cur = existing.find(e => e.name === item.name);
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0;">
+                    <span style="flex:1;font-size:13px;">${escapeHtml(item.name)}<br><span style="font-size:11px;color:#2e7d32;">${item.cost} ₽</span></span>
+                    <input type="number" id="tplQty_${i}" min="0" value="${cur ? cur.qty : 0}"
+                        style="width:52px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;font-size:14px;">
+                    <span style="font-size:11px;color:#999;">шт</span>
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('templateModal').style.display = 'flex';
+    }
+    window.editTemplate = (idx) => openTemplateModal(idx);
     
     window.viewPhoto = (src) => { let d=document.createElement('div'); d.className='photo-full'; d.innerHTML=`<img src="${src}">`; d.onclick=()=>d.remove(); document.body.appendChild(d); };
     
@@ -457,18 +542,30 @@
     window.useTemplate = (idx) => {
         window.currentTemplateIdx = idx;
         const template = templates[idx];
-        document.getElementById('templateNameDisplay').innerText = '📋 ' + template.name;
-        let totalCost = 0, allPriced = true, breakdown = '';
+        document.getElementById('templateNameDisplay').innerText = '📦 ' + template.name;
+        const { needs, totalCost } = calcSetMaterials(template);
+        let breakdown = '';
         template.items.forEach(item => {
-            const priceItem = findByName(priceItems, item.name);
-            const stockItem = findByName(stockItems, item.name);
-            const cost = priceItem ? priceItem.cost * item.qty : null;
-            if (cost !== null) totalCost += cost; else allPriced = false;
-            const stockQty = stockItem ? stockItem.quantity : 0;
-            const stockIcon = !stockItem ? '❌' : stockItem.quantity >= item.qty ? '✅' : '⚠️';
-            breakdown += `• ${item.name}: ${item.qty} шт${cost !== null ? ' — ' + cost + ' ₽' : ''} | склад: ${stockIcon}${stockQty}<br>`;
+            const pi = findByName(priceItems, item.name);
+            const cost = pi ? pi.cost * item.qty : 0;
+            breakdown += `<b>• ${escapeHtml(item.name)} × ${item.qty} — ${cost} ₽</b><br>`;
+            if (pi && pi.materials && pi.materials.length) {
+                pi.materials.forEach(mat => {
+                    const si = findByName(stockItems, mat.name);
+                    const needed = mat.qty * item.qty;
+                    const icon = !si ? '❌' : si.quantity >= needed ? '✅' : '⚠️';
+                    breakdown += `<span style="color:#666;padding-left:10px;">↳ ${escapeHtml(mat.name)}: ${needed} шт ${icon}${si ? si.quantity : 0}</span><br>`;
+                });
+            }
         });
-        if (totalCost > 0) breakdown += `<b>💰 Итого: ${totalCost} ₽${!allPriced ? ' (неполно)' : ''}</b>`;
+        // Итого материалов
+        breakdown += '<div style="margin-top:6px;border-top:1px solid #ddd;padding-top:6px;">';
+        Object.entries(needs).forEach(([name, qty]) => {
+            const si = findByName(stockItems, name);
+            const icon = !si ? '❌' : si.quantity >= qty ? '✅' : '⚠️';
+            breakdown += `<span style="font-size:11px;">${icon} ${escapeHtml(name)}: нужно ${qty}, есть ${si ? si.quantity : 0}</span><br>`;
+        });
+        breakdown += `</div><b>💰 Итого: ${totalCost} ₽</b>`;
         document.getElementById('templateBreakdown').innerHTML = breakdown;
         updateSelects();
         document.getElementById('useTemplateModal').style.display = 'flex';
@@ -515,22 +612,30 @@
     
     document.getElementById('saveMaterialBtn').onclick = () => {
         const clientIdx = window.currentClientIdx;
-        const stockIdx = document.getElementById('materialSelect').value;
+        const priceIdx = document.getElementById('materialSelect').value;
         const qty = parseInt(document.getElementById('materialQuantity').value);
-        if (stockIdx === '') { alert('Выберите товар'); return; }
+        if (priceIdx === '') { alert('Выберите позицию'); return; }
         if (isNaN(qty) || qty <= 0) { alert('Введите количество'); return; }
-        
-        const stockItem = stockItems[stockIdx];
-        if (stockItem.quantity < qty) { alert(`На складе только ${stockItem.quantity} шт`); return; }
-        
-        stockItem.quantity -= qty;
+        const pi = priceItems[priceIdx];
+        // Проверяем наличие материалов на складе
+        const errors = [];
+        (pi.materials || []).forEach(mat => {
+            const si = findByName(stockItems, mat.name);
+            const needed = mat.qty * qty;
+            if (!si) errors.push(`"${mat.name}" нет на складе`);
+            else if (si.quantity < needed) errors.push(`"${mat.name}": нужно ${needed}, есть ${si.quantity}`);
+        });
+        if (errors.length) { alert('❌ Не хватает:\n' + errors.join('\n')); return; }
+        // Списываем материалы со склада
+        (pi.materials || []).forEach(mat => {
+            const si = findByName(stockItems, mat.name);
+            if (si) si.quantity -= mat.qty * qty;
+        });
         if (!clients[clientIdx].materialsUsed) clients[clientIdx].materialsUsed = [];
-        clients[clientIdx].materialsUsed.push({ name: stockItem.name, qty: qty, date: new Date().toISOString() });
-        
-        saveData();
-        renderAll();
+        clients[clientIdx].materialsUsed.push({ name: pi.name, qty, cost: (pi.cost || 0) * qty, date: new Date().toISOString() });
+        saveData(); renderAll();
         document.getElementById('addMaterialModal').style.display = 'none';
-        alert(`✅ Списано ${qty} шт "${stockItem.name}"`);
+        alert(`✅ ${qty} × "${pi.name}" применено\nМатериалы списаны со склада`);
     };
     document.getElementById('closeMaterialModal').onclick = () => document.getElementById('addMaterialModal').style.display = 'none';
     
@@ -538,36 +643,29 @@
         const template = templates[window.currentTemplateIdx];
         const clientId = document.getElementById('useTemplateClientSelect').value;
         if (clientId === '') { alert('Выберите клиента'); return; }
-        
-        let canApply = true;
-        let errors = [];
-        template.items.forEach(item => {
-            const stockItem = stockItems.find(s => s.name === item.name);
-            if (!stockItem) {
-                errors.push(`"${item.name}" нет на складе`);
-                canApply = false;
-            } else if (stockItem.quantity < item.qty) {
-                errors.push(`"${item.name}" только ${stockItem.quantity} шт, нужно ${item.qty}`);
-                canApply = false;
-            }
+        const { needs, totalCost } = calcSetMaterials(template);
+        // Проверяем материалы
+        const errors = [];
+        Object.entries(needs).forEach(([name, qty]) => {
+            const si = findByName(stockItems, name);
+            if (!si) errors.push(`"${name}" нет на складе`);
+            else if (si.quantity < qty) errors.push(`"${name}": нужно ${qty}, есть ${si.quantity}`);
         });
-        
-        if (!canApply) {
-            alert('❌ Не хватает материалов:\n' + errors.join('\n'));
-            return;
-        }
-        
-        template.items.forEach(item => {
-            const stockItem = stockItems.find(s => s.name === item.name);
-            stockItem.quantity -= item.qty;
-            if (!clients[clientId].materialsUsed) clients[clientId].materialsUsed = [];
-            clients[clientId].materialsUsed.push({ name: item.name, qty: item.qty, date: new Date().toISOString(), fromTemplate: template.name });
+        if (errors.length) { alert('❌ Не хватает:\n' + errors.join('\n')); return; }
+        // Списываем материалы
+        Object.entries(needs).forEach(([name, qty]) => {
+            const si = findByName(stockItems, name);
+            if (si) si.quantity -= qty;
         });
-        
-        saveData();
-        renderAll();
+        // Записываем на клиента
+        if (!clients[clientId].materialsUsed) clients[clientId].materialsUsed = [];
+        template.items.forEach(item => {
+            const pi = findByName(priceItems, item.name);
+            clients[clientId].materialsUsed.push({ name: item.name, qty: item.qty, cost: (pi ? pi.cost : 0) * item.qty, date: new Date().toISOString(), fromSet: template.name });
+        });
+        saveData(); renderAll();
         document.getElementById('useTemplateModal').style.display = 'none';
-        alert(`✅ Шаблон "${template.name}" применён к ${clients[clientId].name}\nМатериалы списаны со склада`);
+        alert(`✅ "${template.name}" применён к ${clients[clientId].name}\n💰 ${totalCost} ₽\nМатериалы списаны со склада`);
     };
     document.getElementById('closeUseTemplateModal').onclick = () => document.getElementById('useTemplateModal').style.display = 'none';
     
@@ -633,23 +731,7 @@
     };
     document.getElementById('closeTaskModal').onclick = () => document.getElementById('taskModal').style.display = 'none';
     
-    function openTemplateModal() {
-        document.getElementById('templateName').value = '';
-        const picker = document.getElementById('templateItemsPicker');
-        if (!priceItems.length) {
-            picker.innerHTML = '<p style="color:#999;font-size:12px;padding:8px;">Сначала добавьте товары/услуги в прайс-лист</p>';
-        } else {
-            picker.innerHTML = priceItems.map((item, i) => `
-                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0;">
-                    <span style="flex:1;font-size:13px;">${escapeHtml(item.name)}<br><span style="font-size:11px;color:#2e7d32;">${item.cost} ₽</span></span>
-                    <input type="number" id="tplQty_${i}" min="0" value="0"
-                        style="width:52px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;font-size:14px;">
-                    <span style="font-size:11px;color:#999;">шт</span>
-                </div>`).join('');
-        }
-        document.getElementById('templateModal').style.display = 'flex';
-    }
-    document.getElementById('addTemplateBtn').onclick = openTemplateModal;
+    document.getElementById('addTemplateBtn').onclick = () => openTemplateModal(null);
     document.getElementById('saveTemplateBtn').onclick = () => {
         const name = document.getElementById('templateName').value.trim();
         if (!name) { alert('Введите название набора'); return; }
@@ -659,26 +741,29 @@
             if (qty > 0) items.push({ name: item.name, qty });
         });
         if (!items.length) { alert('Укажите количество хотя бы для одной позиции'); return; }
-        templates.push({ name, items });
+        const tpl = { name, items };
+        if (editingTemplateIdx !== null) { templates[editingTemplateIdx] = tpl; }
+        else { templates.push(tpl); }
         saveData();
         renderTemplates();
         document.getElementById('templateModal').style.display = 'none';
     };
     document.getElementById('closeTemplateModal').onclick = () => document.getElementById('templateModal').style.display = 'none';
     
-    document.getElementById('addPriceBtn').onclick = () => document.getElementById('priceModal').style.display = 'flex';
-    document.getElementById('savePriceBtn').onclick = () => { 
-        let n = document.getElementById('priceName').value.trim(); 
-        if(n){ 
-            priceItems.push({ 
-                name: n, 
-                cost: parseInt(document.getElementById('priceCost').value)||0, 
-                delivery: document.getElementById('priceDelivery').value 
-            }); 
-            saveData(); 
-            renderPrices(); 
-        } 
-        document.getElementById('priceModal').style.display = 'none'; 
+    document.getElementById('addPriceBtn').onclick = () => openPriceModal(null);
+    document.getElementById('savePriceBtn').onclick = () => {
+        const name = document.getElementById('priceName').value.trim();
+        if (!name) { alert('Введите название'); return; }
+        const materials = [];
+        stockItems.forEach((s, i) => {
+            const qty = parseInt(document.getElementById(`matQty_${i}`)?.value) || 0;
+            if (qty > 0) materials.push({ name: s.name, qty });
+        });
+        const item = { name, cost: parseInt(document.getElementById('priceCost').value) || 0, delivery: document.getElementById('priceDelivery').value, materials };
+        if (editingPriceIdx !== null) { priceItems[editingPriceIdx] = item; }
+        else { priceItems.push(item); }
+        saveData(); renderPrices(); renderTemplates();
+        document.getElementById('priceModal').style.display = 'none';
     };
     document.getElementById('closePriceModal').onclick = () => document.getElementById('priceModal').style.display = 'none';
     
